@@ -24,10 +24,9 @@ if __name__ == "__main__":
   if len(sys.argv) < 2:
     print("usage: ./plotlite.py <savegame>")
     sys.exit(0)
-  data = np.load(sys.argv[1])
-  # data2 = np.load(sys.argv[2])
-  plt.title("Channel A")
-  plt.plot(data)
-  # plt.plot(data2)
+  plt.title("ANKO Plotlite")
+  for f in sys.argv[1:]:
+    plt.plot(np.load(f),label=f)
+  plt.legend()
   plt.show()
   

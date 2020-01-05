@@ -12,7 +12,9 @@ def getTruePeaks(locations,samples):
   out = []
   for x in locations:
     temp_array = samples[x-50:x+50]
-    out.append( (max(temp_array),x + int(np.where(temp_array == max(temp_array))[0]) ) )
+    f = np.where(temp_array == max(temp_array))[0][0]
+    # print(np.where(temp_array == max(temp_array)))
+    out.append( (max(temp_array),x + f ) )
   print(out)
   return out
 
