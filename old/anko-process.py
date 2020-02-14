@@ -41,7 +41,7 @@ if __name__ == "__main__":
     print("You must select a mode with -m")
     sys.exit(0)
   elif CONFIG_MODE == MODE_SLICE:
-    if CONFIG_INFILE is None or CONFIG_OUTFILE is None:
+    if CONFIG_INFILE is None or CONFIG_WRITEFILE is None:
       print("Slice requires both in and out files")
       sys.exit(0)
     data1 = np.load(CONFIG_INFILE)
