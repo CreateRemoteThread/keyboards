@@ -91,7 +91,7 @@ if __name__ == "__main__":
   if CONFIG_TRAINSET is None or CONFIG_FPREFIX is None:
     print("This is a trained classifier. You must provide the trainset and the floss")
     sys.exit(0)
-  trainset = np.load(CONFIG_TRAINSET)
+  trainset = np.load(CONFIG_TRAINSET,allow_pickle=True)
   bCont = True
   out = {}
   i = 0
@@ -102,18 +102,14 @@ if __name__ == "__main__":
       bCont = False
       break
     data = np.load(fn)
-    lm = support.findLocalMaxima(data[0])
+    lm = support.findLocalMaxima(data)
     nextTrace = False
     for nom in lm:
-      c0 = support.block_preprocess_function(data[0][nom+1000:nom+support.CONFIG_MAX_PULSEWIDTH])
-      c1 = support.block_preprocess_function(data[1][nom+1000:nom+support.CONFIG_MAX_PULSEWIDTH])
+      c0 = support.block_preprocess_function(data[nom+1000:nom+support.CONFIG_MAX_PULSEWIDTH])
       rlm_channelA = support.findReallyLocalMaxima(c0)
-      rlm_channelB = support.findReallyLocalMaxima(c1)
-      for (tag,chanAPeaks,chanBPeaks) in trainset:
+      for (tag,chanAPeaks) in trainset:
         print(tag + " : ",end="")
-        # matchSet will cull the weakest signals.
-        # assume problems are caused by noise, not "ghost peaks".
-        if matchSet(rlm_channelA,chanAPeaks) and matchSet(rlm_channelB,chanBPeaks):
+        if matchSet(rlm_channelA,chanAPeaks):
           print("Exact match: %s" % tag)
           if i in out.keys():
             out[i].append(tag)
