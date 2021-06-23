@@ -6,7 +6,7 @@ import getopt
 import glob
 from scipy import signal
 
-CONFIG_THRESHOLD = 0.15
+CONFIG_THRESHOLD = 0.04
 CONFIG_PEAK_IDENTIFY = CONFIG_THRESHOLD
 CONFIG_MAX_PULSEWIDTH = 75000
 
@@ -97,6 +97,13 @@ def twoOfThree_twinlinked(unknown,alignment):
 CONFIG_FILENAME = None
 CONFIG_TRAIN = None
 
+def get_label(fn):
+  if "/" in fn:
+    fn = fn.split("/")[-1]
+  if "." in fn:
+    fn = fn.split(".")[0]
+  return fn.split("-")[0]
+
 def extract_2channel_spectrum(data):
   out = []
   for lmA in findLocalMaxima(data[0]):
@@ -110,7 +117,6 @@ def pool_agreement(tr):
     print("Calculating spectral alignment for %s" % i)
     for d_spec in d_spectra:
       print("+")
-
 
 def getSAD(t1,t2):
   return sum(abs(t1-t2))

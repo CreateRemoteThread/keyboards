@@ -5,6 +5,7 @@ import matplotlib as mpl
 mpl.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+from scipy.signal import butter,lfilter,freqz
 import tkinter as tk
 import numpy as np
 import sys
@@ -16,13 +17,27 @@ mpl.use("Agg")
 import matplotlib.pyplot as plt
 CONFIG_SAMPLECOUNT = 400000
 CONFIG_SAMPLERATE = 124999999
-CONFIG_CAPTURES = 5
+CONFIG_CAPTURES = -1
+CONFIG_DISPLAY_SAMPLES = 5000
 
 CONFIG_THRESHOLD = support.CONFIG_THRESHOLD
 CONFIG_BACKOFF = 0.2
 CONFIG_VRANGE = 0.5
 
 CONFIG_FPREFIX = None
+CONFIG_DONOTSAVE = True
+CONFIG_SPECGRAM = False
+
+def butter_lowpass(cutoff,fs,order=5):
+  nyq = 0.5 * fs
+  normal_cutoff = cutoff / nyq
+  b, a = butter(order, normal_cutoff, btype='low', analog=False)
+  return b, a
+
+def butter_lowpass_filter(data, cutoff, fs, order=5):
+  b, a = butter_lowpass(cutoff, fs, order=order)
+  y = lfilter(b,a,data)
+  return y
 
 def confirmSettings():
   print("Number of captures: %d" % CONFIG_CAPTURES)
@@ -52,7 +67,7 @@ class Application(tk.Frame):
     self.canvas_tk = self.canvas.get_tk_widget().pack(side=tk.BOTTOM,fill=tk.BOTH,expand=True)
 
   def canvasClick(self,event):
-    global CONFIG_VRANGE,CONFIG_SAMPLERATE,CONFIG_SAMPLECOUNT,CONFIG_FPREFIX,CONFIG_THRESHOLD,CONFIG_CAPTURES,CONFIG_BACKOFF
+    global CONFIG_VRANGE,CONFIG_SAMPLERATE,CONFIG_SAMPLECOUNT,CONFIG_FPREFIX,CONFIG_THRESHOLD,CONFIG_CAPTURES,CONFIG_BACKOFF,CONFIG_DONOTSAVE,CONFIG_SPECGRAM,CONFIG_DISPLAY_SAMPLES
     try:
       ps = ps2000a.PS2000a()
       self.canvas.mpl_disconnect(self.cid)
@@ -70,35 +85,63 @@ class Application(tk.Frame):
     nCount = 0
     nMax = CONFIG_CAPTURES
     print("Capture is committed...")
-    while (nMax is None) or (nCount < nMax):
-      ps.runBlock()
+    while True:
+      if nMax == nCount:
+        break
+      ps.runBlock(pretrig=0.2)
       ps.waitReady()
       dataA = ps.getDataV("A",CONFIG_SAMPLECOUNT,returnOverflow=False)
-      if float(max(dataA[0:100])) < float(CONFIG_THRESHOLD):
+      # print(len(dataA))
+      SLICE_START = int(CONFIG_SAMPLECOUNT * 0.2)
+      SLICE_END = SLICE_START + 500
+      if float(max(dataA[SLICE_START:SLICE_END])) < float(CONFIG_THRESHOLD):
         # print("failed capture")
         continue
-      if CONFIG_FPREFIX is None:
-        print("Saving training capture...")
-        np.save("floss/%d.npy" % nCount,dataA)
+      if CONFIG_DONOTSAVE is False:
+        if CONFIG_FPREFIX is None:
+          print("Saving training capture...")
+          np.save("floss/%d.npy" % nCount,dataA)
+        else:
+          print("Saving real capture...")
+          np.save("toothpicks/%s-%d.npy" % (CONFIG_FPREFIX,nCount),dataA)
       else:
-        print("Saving real capture...")
-        np.save("toothpicks/%s-%d.npy" % (CONFIG_FPREFIX,nCount),dataA)
+        print("No save mode specified, discarding save")
       self.mainPlot.clear()
-      self.mainPlot.plot(dataA[:75000])
+      data_DISPLAY = dataA[SLICE_START - 5000:SLICE_START+5000]
+      if CONFIG_SPECGRAM:
+        self.mainPlot.specgram(data_DISPLAY,NFFT=1024,Fs=CONFIG_SAMPLERATE,noverlap=900)
+      else:
+        self.mainPlot.plot(support.block_preprocess_function(data_DISPLAY))
       self.canvas.draw()
       self.canvas.flush_events()
       time.sleep(CONFIG_BACKOFF)
       nCount += 1
     print("Captured %d slices" % nCount)
 
+def usage():
+  print("./capture.py: a keyboard EM manual capture tool")
+  print(" -t / --train [label]: capture training samples, label them")
+  print(" -c / --count [count]: captures [count] number of keystrokes")
+  print(" -s / --specgram: changes the display to a spectrogram view")
+
 if __name__ == "__main__":
   if len(sys.argv) > 1:
-    args,opts = getopt.getopt(sys.argv[1:],"t:",["train="])
+    args,opts = getopt.getopt(sys.argv[1:],"ht:c:s",["help","train=","count=","specgram"])
     for arg,opt in args:
       if arg in ("-t","--train"):
         CONFIG_FPREFIX = opt
+        CONFIG_DONOTSAVE = False
+      elif arg in ("-c","--count"):
+        CONFIG_CAPTURES = int(opt)
+        CONFIG_DONOTSAVE = False
+      elif arg in ("-s","--specgram"):
+        CONFIG_SPECGRAM = True
+      elif arg in ("-h","--help"):
+        usage()
+        sys.exit(0)
+  print("Click the graph to begin capture...")
   root = tk.Tk()
-  root.title("sycamore.py")
+  root.title("capture.py")
   root.geometry("800x600")
   app = Application(master=root)
   app.mainloop()
